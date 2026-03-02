@@ -1,7 +1,8 @@
 import pandas as pd
 
 # Carrega o dataset
-df = pd.read_csv("data/raw/survey.csv")
+df = pd.read_csv("../data/raw/survey.csv")
+
 
 def exibir_menu():
     colunas = list(df.columns)
@@ -14,8 +15,9 @@ def exibir_menu():
     for i, coluna in enumerate(colunas, start=1):
         print(f"  [{i:>2}] {coluna}")
 
-    print(f"\n  [ 0] Sair")
+    print("\n  [ 0] Sair")
     print("-" * 50)
+
 
 def main():
     colunas = list(df.columns)
@@ -49,6 +51,7 @@ def main():
             input("\nPressione ENTER para voltar ao menu...")
         else:
             print(f"\n⚠  Opção inválida. Escolha entre 0 e {len(colunas)}.")
+
 
 if __name__ == "__main__":
     main()
