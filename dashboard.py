@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # ─────────────────────────────────────────────
 # 1. Configuração da Página
@@ -72,12 +74,30 @@ if pais_selecionado != "Todos":
 # Seção 1: Fatores Demográficos
 st.subheader("👥 Fatores Demográficos")
 col1, col2, col3 = st.columns(3)
+
 with col1:
-    st.info("Gráfico X entrará aqui — Distribuição de Idade")
+    st.write("### Distribuição de Gênero")
+    fig1, ax1 = plt.subplots()
+    sns.countplot(data=df_filtrado, x='Gender', order=df_filtrado['Gender'].value_counts().index, palette='viridis', hue='Gender', legend=False, ax=ax1)
+    ax1.set_title("Distribuição de Gênero na TI")
+    st.pyplot(fig1)
+    st.markdown("**Insight:** Predominância masculina expressiva na amostra, refletindo a disparidade do setor.")
+
 with col2:
-    st.info("Gráfico X entrará aqui — Distribuição de Gênero")
+    st.write("### Gênero x Tratamento")
+    fig2, ax2 = plt.subplots()
+    sns.countplot(data=df_filtrado, x='Gender', hue='treatment', palette='magma', ax=ax2)
+    ax2.set_title("Busca por Tratamento por Gênero")
+    st.pyplot(fig2)
+    st.markdown("**Insight:** Proporcionalmente, mulheres e outros gêneros tendem a buscar mais tratamento que homens.")
+
 with col3:
-    st.info("Gráfico X entrará aqui — Distribuição de Gênero")
+    st.write("### Idade x Tratamento")
+    fig3, ax3 = plt.subplots()
+    sns.boxplot(data=df_filtrado, x='treatment', y='Age', palette='coolwarm', ax=ax3)
+    ax3.set_title("Distribuição de Idade por Tratamento")
+    st.pyplot(fig3)
+    st.markdown("**Insight:** A idade não parece ser um fator determinante impeditivo para a busca de tratamento.")
 st.divider()
 
 # Seção 2: Cultura Organizacional
