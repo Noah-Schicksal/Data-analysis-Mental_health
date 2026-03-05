@@ -4,3 +4,8 @@ matplotlib
 seaborn
 scikit-learn
 streamlit
+plotly
+psutil
+nbformat
+ipywidgets
+jupyter
