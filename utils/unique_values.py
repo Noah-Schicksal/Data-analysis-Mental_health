@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Carrega o dataset
-df = pd.read_csv("../data/raw/survey.csv")
+df = pd.read_csv("../data/processed/survey.csv")
 
 
 def exibir_menu():
