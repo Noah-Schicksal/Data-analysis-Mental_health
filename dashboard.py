@@ -30,8 +30,8 @@ st.divider()
 @st.cache_data
 def carregar_dados():
     try:
-        df = pd.read_csv("data/processed/survey.csv")
-        fonte = "data/processed/survey.csv"
+        df = pd.read_csv("data/processed/survey_limpo.csv")
+        fonte = "data/processed/survey_limpo.csv"
     except FileNotFoundError:
         df = pd.read_csv("data/raw/survey.csv")
         fonte = "data/raw/survey.csv"
