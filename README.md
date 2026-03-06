@@ -9,7 +9,7 @@ Análise exploratória da pesquisa **OSMI — Mental Health in Tech Survey**, in
 
 ---
 
-## 📊 Principais Descobertas (Storytelling)
+## 📊 Principais Descobertas
 
 A análise dos dados revelou padrões críticos sobre a saúde mental no setor de tecnologia:
 
