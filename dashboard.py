@@ -82,6 +82,11 @@ st.markdown("""
         border-radius: 8px; padding: 1.1rem 1.4rem; margin: 1rem 0;
         font-size: 0.95rem; color: #263238;
     }
+    .filtro-label {
+        font-size: 0.78rem; font-weight: 600; color: #546e7a;
+        text-transform: uppercase; letter-spacing: 0.6px;
+        margin-bottom: 2px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -116,6 +121,21 @@ def crosstab_pct(df, col_index, col_col, ordem=None):
         tab = tab[[c for c in ordem if c in tab.columns]]
     tab_pct = tab.div(tab.sum(axis=1), axis=0).reset_index()
     return tab_pct.melt(id_vars=col_index, var_name=col_col, value_name="pct")
+
+
+def filtro_legenda(label: str, opcoes: list, key: str) -> list:
+    """Renderiza um multiselect discreto para filtrar categorias de cor/legenda."""
+    selecionados = st.multiselect(
+        label,
+        options=opcoes,
+        default=opcoes,
+        key=key,
+        help="Desmarque itens para removê-los do gráfico (valores recalculados automaticamente)",
+        label_visibility="visible",
+    )
+    if not selecionados:
+        st.warning("Selecione ao menos uma opção para exibir o gráfico.", icon="⚠️")
+    return selecionados
 
 
 # ── Carregamento ─────────────────────────────────────────────────────────────
@@ -234,49 +254,82 @@ if ato == "Visão Geral":
     st.divider()
     col_a, col_b = st.columns(2)
 
+    # ── Gráfico 1: Distribuição de Gênero ─────────────────────────────────────
     with col_a:
         st.markdown("##### Distribuição de Gênero")
-        gen = df["Gender"].value_counts().reset_index()
-        gen.columns = ["Gênero", "Contagem"]
-        fig = px.bar(gen, x="Gênero", y="Contagem",
-                     color="Gênero", color_discrete_sequence=PALETA_PLOTLY,
-                     text="Contagem")
-        fig.update_traces(textposition="outside")
-        layout_plotly(fig, pct=False)
-        st.plotly_chart(fig, use_container_width=True)
-        insight("A amostra é predominantemente masculina, refletindo a disparidade histórica do setor de tecnologia.")
+        generos_disponiveis = df["Gender"].value_counts().index.tolist()
+        generos_sel = filtro_legenda(
+            "Filtrar gêneros:",
+            generos_disponiveis,
+            key="vg_genero"
+        )
+        if generos_sel:
+            gen_filtrado = df[df["Gender"].isin(generos_sel)]
+            gen = gen_filtrado["Gender"].value_counts().reset_index()
+            gen.columns = ["Gênero", "Contagem"]
+            fig = px.bar(gen, x="Gênero", y="Contagem",
+                         color="Gênero", color_discrete_sequence=PALETA_PLOTLY,
+                         text="Contagem")
+            fig.update_traces(textposition="outside")
+            layout_plotly(fig, pct=False)
+            st.plotly_chart(fig, use_container_width=True)
+            insight("A amostra é predominantemente masculina, refletindo a disparidade histórica do setor de tecnologia.")
 
+    # ── Gráfico 2: Top Países ─────────────────────────────────────────────────
     with col_b:
         st.markdown("##### Top 10 Países Representados")
-        paises = df["Country"].value_counts().head(10).reset_index()
-        paises.columns = ["País", "Contagem"]
-        fig2 = px.bar(paises, x="Contagem", y="País", orientation="h",
-                      color="Contagem", color_continuous_scale="Teal",
-                      text="Contagem")
-        fig2.update_traces(textposition="outside")
-        layout_plotly(fig2, pct=False)
-        fig2.update_layout(yaxis={"categoryorder": "total ascending"}, coloraxis_showscale=False)
-        st.plotly_chart(fig2, use_container_width=True)
-        insight("Maioria dos respondentes é dos EUA e Reino Unido, com representação global relevante.")
+        paises_disponiveis = df["Country"].value_counts().head(10).index.tolist()
+        paises_sel = filtro_legenda(
+            "Filtrar países:",
+            paises_disponiveis,
+            key="vg_paises"
+        )
+        if paises_sel:
+            paises_filtrado = df[df["Country"].isin(paises_sel)]
+            paises = paises_filtrado["Country"].value_counts().reset_index()
+            paises.columns = ["País", "Contagem"]
+            fig2 = px.bar(paises, x="Contagem", y="País", orientation="h",
+                          color="Contagem", color_continuous_scale="Teal",
+                          text="Contagem")
+            fig2.update_traces(textposition="outside")
+            layout_plotly(fig2, pct=False)
+            fig2.update_layout(yaxis={"categoryorder": "total ascending"}, coloraxis_showscale=False)
+            st.plotly_chart(fig2, use_container_width=True)
+            insight("Maioria dos respondentes é dos EUA e Reino Unido, com representação global relevante.")
 
     st.divider()
+
+    # ── Gráfico 3: work_interfere ─────────────────────────────────────────────
     st.markdown("##### Interferência da Saúde Mental no Trabalho (work_interfere)")
-    wi = df["work_interfere"].dropna().value_counts()
     ordem_wi = ["Never", "Rarely", "Sometimes", "Often"]
-    wi = wi.reindex(ordem_wi).dropna().reset_index()
-    wi.columns = ["Nível", "Contagem"]
-    wi["Pct"] = (wi["Contagem"] / wi["Contagem"].sum() * 100).round(1)
-    fig3 = px.bar(wi, x="Nível", y="Pct", color="Nível",
-                  color_discrete_sequence=[CORES["teal"], CORES["teal_claro"],
-                                           CORES["amarelo"], CORES["acento_quente"]],
-                  text="Pct")
-    fig3.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-    layout_plotly(fig3)
-    st.plotly_chart(fig3, use_container_width=True)
-    gancho(
-        "60,4% dos respondentes relatam que sua saúde mental interfere no trabalho "
-        "com frequência (Often + Sometimes). Este é o problema que precisamos resolver."
+    cores_wi = {
+        "Never": CORES["teal"],
+        "Rarely": CORES["teal_claro"],
+        "Sometimes": CORES["amarelo"],
+        "Often": CORES["acento_quente"],
+    }
+    niveis_sel = filtro_legenda(
+        "Filtrar níveis de interferência:",
+        ordem_wi,
+        key="vg_wi"
     )
+    if niveis_sel:
+        wi = df["work_interfere"].dropna()
+        wi = wi[wi.isin(niveis_sel)].value_counts()
+        wi = wi.reindex([n for n in ordem_wi if n in niveis_sel]).dropna().reset_index()
+        wi.columns = ["Nível", "Contagem"]
+        wi["Pct"] = (wi["Contagem"] / wi["Contagem"].sum() * 100).round(1)
+        cores_sel = [cores_wi[n] for n in wi["Nível"]]
+        fig3 = px.bar(wi, x="Nível", y="Pct", color="Nível",
+                      color_discrete_sequence=cores_sel,
+                      text="Pct")
+        fig3.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+        layout_plotly(fig3)
+        st.plotly_chart(fig3, use_container_width=True)
+        gancho(
+            "60,4% dos respondentes relatam que sua saúde mental interfere no trabalho "
+            "com frequência (Often + Sometimes). Este é o problema que precisamos resolver."
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -300,34 +353,74 @@ elif ato == "Ato 1 — A Bagagem Invisível":
     df_fam = df[df["family_history"].isin(["Yes", "No"])].copy()
     df_fam = df_fam[df_fam["treatment"].isin(["Yes", "No"])]
 
-    tab_fam = pd.crosstab(df_fam["family_history"], df_fam["treatment"])
-    tab_fam_pct = (tab_fam.div(tab_fam.sum(axis=1), axis=0) * 100).round(1).reset_index()
-    tab_fam_long = tab_fam_pct.melt(
-        id_vars="family_history", var_name="Buscou Tratamento", value_name="Proporção (%)"
-    )
-    tab_fam_long["Histórico Familiar"] = tab_fam_long["family_history"].map(
-        {"Yes": "Com histórico familiar", "No": "Sem histórico familiar"}
-    )
+    # Mapeamentos legíveis
+    mapa_fam_hist = {"Yes": "Com histórico familiar", "No": "Sem histórico familiar"}
+    mapa_trat     = {"Yes": "Buscou Tratamento", "No": "Não Buscou"}
 
-    fig_fam = px.bar(
-        tab_fam_long, x="Histórico Familiar", y="Proporção (%)",
-        color="Buscou Tratamento", barmode="group",
-        color_discrete_map={"Yes": CORES["acento_quente"], "No": CORES["teal"]},
-        text="Proporção (%)",
-        title="Histórico Familiar × Busca por Tratamento",
-    )
-    fig_fam.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-    layout_plotly(fig_fam, altura=420)
-    st.plotly_chart(fig_fam, use_container_width=True)
+    historicos_disponiveis = ["Com histórico familiar", "Sem histórico familiar"]
+    tratamentos_disponiveis = ["Buscou Tratamento", "Não Buscou"]
 
-    pct_sim_com = tab_fam_pct.set_index("family_history").loc["Yes", "Yes"]
-    pct_sim_sem = tab_fam_pct.set_index("family_history").loc["No", "Yes"]
-    insight(
-        f"**{pct_sim_com:.1f}%** dos funcionários com histórico familiar buscam tratamento, "
-        f"contra apenas **{pct_sim_sem:.1f}%** dos que não têm. "
-        f"Diferença de **{pct_sim_com - pct_sim_sem:.1f} p.p.** — "
-        "a bagagem invisível é real e measurável."
-    )
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        hist_sel = filtro_legenda(
+            "Filtrar histórico familiar:",
+            historicos_disponiveis,
+            key="a1_hist"
+        )
+    with col_f2:
+        trat_sel = filtro_legenda(
+            "Filtrar busca por tratamento:",
+            tratamentos_disponiveis,
+            key="a1_trat"
+        )
+
+    if hist_sel and trat_sel:
+        hist_raw = [k for k, v in mapa_fam_hist.items() if v in hist_sel]
+        trat_raw = [k for k, v in mapa_trat.items() if v in trat_sel]
+
+        df_fam_f = df_fam[df_fam["family_history"].isin(hist_raw) & df_fam["treatment"].isin(trat_raw)]
+
+        tab_fam = pd.crosstab(df_fam_f["family_history"], df_fam_f["treatment"])
+        # Garante que só colunas selecionadas apareçam
+        for col in trat_raw:
+            if col not in tab_fam.columns:
+                tab_fam[col] = 0
+        tab_fam = tab_fam[trat_raw]
+        tab_fam_pct = (tab_fam.div(tab_fam.sum(axis=1), axis=0) * 100).round(1).reset_index()
+        tab_fam_long = tab_fam_pct.melt(
+            id_vars="family_history", var_name="Buscou Tratamento", value_name="Proporção (%)"
+        )
+        tab_fam_long["Histórico Familiar"] = tab_fam_long["family_history"].map(mapa_fam_hist)
+        tab_fam_long["Tratamento Label"]   = tab_fam_long["Buscou Tratamento"].map(mapa_trat)
+
+        cores_trat = {k: v for k, v in zip(
+            trat_raw,
+            [CORES["acento_quente"] if t == "Yes" else CORES["teal"] for t in trat_raw]
+        )}
+
+        fig_fam = px.bar(
+            tab_fam_long, x="Histórico Familiar", y="Proporção (%)",
+            color="Buscou Tratamento", barmode="group",
+            color_discrete_map={"Yes": CORES["acento_quente"], "No": CORES["teal"]},
+            text="Proporção (%)",
+            title="Histórico Familiar × Busca por Tratamento",
+        )
+        fig_fam.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+        layout_plotly(fig_fam, altura=420)
+        st.plotly_chart(fig_fam, use_container_width=True)
+
+        if "Yes" in hist_raw and "Yes" in trat_raw and "No" in hist_raw:
+            try:
+                pct_sim_com = tab_fam_pct.set_index("family_history").loc["Yes", "Yes"]
+                pct_sim_sem = tab_fam_pct.set_index("family_history").loc["No", "Yes"]
+                insight(
+                    f"**{pct_sim_com:.1f}%** dos funcionários com histórico familiar buscam tratamento, "
+                    f"contra apenas **{pct_sim_sem:.1f}%** dos que não têm. "
+                    f"Diferença de **{pct_sim_com - pct_sim_sem:.1f} p.p.** — "
+                    "a bagagem invisível é real e measurável."
+                )
+            except KeyError:
+                pass
 
     st.divider()
 
@@ -343,41 +436,66 @@ elif ato == "Ato 1 — A Bagagem Invisível":
         df["phys_health_interview"].isin(["Yes", "No", "Maybe"])
     ].copy()
 
-    mental_pct = (
-        df_ent["mental_health_interview"].value_counts(normalize=True) * 100
-    ).round(1).reset_index()
-    mental_pct.columns = ["Resposta", "Proporção (%)"]
-    mental_pct["Tipo"] = "Saúde Mental"
+    respostas_disponiveis = ["Yes", "No", "Maybe"]
+    tipos_disponiveis = ["Saúde Mental", "Saúde Física"]
 
-    fisico_pct = (
-        df_ent["phys_health_interview"].value_counts(normalize=True) * 100
-    ).round(1).reset_index()
-    fisico_pct.columns = ["Resposta", "Proporção (%)"]
-    fisico_pct["Tipo"] = "Saúde Física"
+    col_e1, col_e2 = st.columns(2)
+    with col_e1:
+        resp_sel = filtro_legenda(
+            "Filtrar respostas:",
+            respostas_disponiveis,
+            key="a1_resp"
+        )
+    with col_e2:
+        tipo_sel = filtro_legenda(
+            "Filtrar tipo de saúde:",
+            tipos_disponiveis,
+            key="a1_tipo"
+        )
 
-    df_ent_long = pd.concat([mental_pct, fisico_pct])
+    if resp_sel and tipo_sel:
+        frames = []
+        if "Saúde Mental" in tipo_sel:
+            mental_pct = (
+                df_ent[df_ent["mental_health_interview"].isin(resp_sel)]["mental_health_interview"]
+                .value_counts(normalize=True) * 100
+            ).round(1).reset_index()
+            mental_pct.columns = ["Resposta", "Proporção (%)"]
+            mental_pct["Tipo"] = "Saúde Mental"
+            frames.append(mental_pct)
 
-    fig_ent = px.bar(
-        df_ent_long, x="Tipo", y="Proporção (%)", color="Resposta",
-        barmode="group",
-        color_discrete_map={
-            "Yes": CORES["teal"], "Maybe": CORES["amarelo"], "No": CORES["acento_quente"]
-        },
-        text="Proporção (%)",
-        title="Disposição de Revelar Condições de Saúde na Entrevista",
-        category_orders={"Resposta": ["Yes", "Maybe", "No"]},
-    )
-    fig_ent.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-    layout_plotly(fig_ent, altura=420)
-    st.plotly_chart(fig_ent, use_container_width=True)
+        if "Saúde Física" in tipo_sel:
+            fisico_pct = (
+                df_ent[df_ent["phys_health_interview"].isin(resp_sel)]["phys_health_interview"]
+                .value_counts(normalize=True) * 100
+            ).round(1).reset_index()
+            fisico_pct.columns = ["Resposta", "Proporção (%)"]
+            fisico_pct["Tipo"] = "Saúde Física"
+            frames.append(fisico_pct)
 
-    yes_mental = df_ent["mental_health_interview"].value_counts(normalize=True).get("Yes", 0) * 100
-    yes_fisico = df_ent["phys_health_interview"].value_counts(normalize=True).get("Yes", 0) * 100
-    insight(
-        f"Apenas **{yes_mental:.1f}%** dos candidatos revelariam um problema de saúde **mental**, "
-        f"contra **{yes_fisico:.1f}%** para problemas **físicos**. "
-        "O candidato prefere omitir sua condição mental para não ser discriminado."
-    )
+        if frames:
+            df_ent_long = pd.concat(frames)
+            fig_ent = px.bar(
+                df_ent_long, x="Tipo", y="Proporção (%)", color="Resposta",
+                barmode="group",
+                color_discrete_map={
+                    "Yes": CORES["teal"], "Maybe": CORES["amarelo"], "No": CORES["acento_quente"]
+                },
+                text="Proporção (%)",
+                title="Disposição de Revelar Condições de Saúde na Entrevista",
+                category_orders={"Resposta": [r for r in ["Yes", "Maybe", "No"] if r in resp_sel]},
+            )
+            fig_ent.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+            layout_plotly(fig_ent, altura=420)
+            st.plotly_chart(fig_ent, use_container_width=True)
+
+            yes_mental = df_ent["mental_health_interview"].value_counts(normalize=True).get("Yes", 0) * 100
+            yes_fisico = df_ent["phys_health_interview"].value_counts(normalize=True).get("Yes", 0) * 100
+            insight(
+                f"Apenas **{yes_mental:.1f}%** dos candidatos revelariam um problema de saúde **mental**, "
+                f"contra **{yes_fisico:.1f}%** para problemas **físicos**. "
+                "O candidato prefere omitir sua condição mental para não ser discriminado."
+            )
 
     st.divider()
     gancho(
@@ -406,79 +524,153 @@ elif ato == "Ato 2 — O Ecossistema Corporativo":
     ].copy()
 
     ordem_wi = ["Never", "Rarely", "Sometimes", "Often"]
-
-    tab_rem = pd.crosstab(df_rem["remote_work"], df_rem["work_interfere"])
-    tab_rem = tab_rem[[c for c in ordem_wi if c in tab_rem.columns]]
-    tab_rem_pct = (tab_rem.div(tab_rem.sum(axis=1), axis=0) * 100).round(1).reset_index()
-    tab_rem_long = tab_rem_pct.melt(
-        id_vars="remote_work", var_name="Interferência", value_name="Proporção (%)"
-    )
-    tab_rem_long["Regime"] = tab_rem_long["remote_work"].map(
-        {"Yes": "Remoto", "No": "Presencial"}
-    )
-
-    fig_rem = px.bar(
-        tab_rem_long, x="Regime", y="Proporção (%)", color="Interferência",
-        barmode="group",
-        color_discrete_sequence=[CORES["teal"], CORES["teal_claro"],
-                                  CORES["amarelo"], CORES["acento_quente"]],
-        category_orders={"Interferência": ordem_wi},
-        text="Proporção (%)",
-        title="Interferência da Saúde Mental × Regime de Trabalho",
-    )
-    fig_rem.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-    layout_plotly(fig_rem, altura=420)
-    st.plotly_chart(fig_rem, use_container_width=True)
+    regimes_map = {"Yes": "Remoto", "No": "Presencial"}
+    regimes_disponiveis = ["Remoto", "Presencial"]
+    interf_disponiveis  = ordem_wi
 
     col_r1, col_r2 = st.columns(2)
-
     with col_r1:
+        regime_sel = filtro_legenda(
+            "Filtrar regime de trabalho:",
+            regimes_disponiveis,
+            key="a2_regime_wi"
+        )
+    with col_r2:
+        interf_sel = filtro_legenda(
+            "Filtrar níveis de interferência:",
+            interf_disponiveis,
+            key="a2_interf"
+        )
+
+    if regime_sel and interf_sel:
+        regime_raw = [k for k, v in regimes_map.items() if v in regime_sel]
+        df_rem_f = df_rem[
+            df_rem["remote_work"].isin(regime_raw) &
+            df_rem["work_interfere"].isin(interf_sel)
+        ]
+        tab_rem = pd.crosstab(df_rem_f["remote_work"], df_rem_f["work_interfere"])
+        for col in interf_sel:
+            if col not in tab_rem.columns:
+                tab_rem[col] = 0
+        tab_rem = tab_rem[[c for c in interf_sel if c in tab_rem.columns]]
+        tab_rem_pct = (tab_rem.div(tab_rem.sum(axis=1), axis=0) * 100).round(1).reset_index()
+        tab_rem_long = tab_rem_pct.melt(
+            id_vars="remote_work", var_name="Interferência", value_name="Proporção (%)"
+        )
+        tab_rem_long["Regime"] = tab_rem_long["remote_work"].map(regimes_map)
+
+        cores_wi_map = dict(zip(
+            ordem_wi,
+            [CORES["teal"], CORES["teal_claro"], CORES["amarelo"], CORES["acento_quente"]]
+        ))
+
+        fig_rem = px.bar(
+            tab_rem_long, x="Regime", y="Proporção (%)", color="Interferência",
+            barmode="group",
+            color_discrete_map=cores_wi_map,
+            category_orders={"Interferência": [i for i in ordem_wi if i in interf_sel]},
+            text="Proporção (%)",
+            title="Interferência da Saúde Mental × Regime de Trabalho",
+        )
+        fig_rem.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+        layout_plotly(fig_rem, altura=420)
+        st.plotly_chart(fig_rem, use_container_width=True)
+
+    # ── Subgráficos: Supervisor e Colegas ─────────────────────────────────────
+    col_g1, col_g2 = st.columns(2)
+
+    with col_g1:
         df_sup = df[df["remote_work"].isin(["Yes", "No"])].copy()
         df_sup = df_sup[df_sup["supervisor"].isin(["Yes", "No", "Some of them"])]
-        tab_sup = pd.crosstab(df_sup["remote_work"], df_sup["supervisor"])
-        tab_sup_pct = (tab_sup.div(tab_sup.sum(axis=1), axis=0) * 100).round(1).reset_index()
-        tab_sup_long = tab_sup_pct.melt(
-            id_vars="remote_work", var_name="Conforto com Supervisor", value_name="Proporção (%)"
-        )
-        tab_sup_long["Regime"] = tab_sup_long["remote_work"].map(
-            {"Yes": "Remoto", "No": "Presencial"}
-        )
-        fig_sup = px.bar(
-            tab_sup_long, x="Regime", y="Proporção (%)",
-            color="Conforto com Supervisor", barmode="group",
-            color_discrete_map={
-                "Yes": CORES["teal"], "Some of them": CORES["amarelo"], "No": CORES["acento_quente"]
-            },
-            text="Proporção (%)",
-            title="Conforto em Falar com Supervisor × Regime",
-        )
-        fig_sup.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-        layout_plotly(fig_sup, altura=380)
-        st.plotly_chart(fig_sup, use_container_width=True)
 
-    with col_r2:
+        sup_opcoes = ["Yes", "No", "Some of them"]
+        reg_opcoes = ["Remoto", "Presencial"]
+
+        sup_reg_sel = filtro_legenda(
+            "Filtrar regime (supervisor):",
+            reg_opcoes,
+            key="a2_sup_reg"
+        )
+        sup_confort_sel = filtro_legenda(
+            "Filtrar conforto com supervisor:",
+            sup_opcoes,
+            key="a2_sup_confort"
+        )
+
+        if sup_reg_sel and sup_confort_sel:
+            sup_raw = [k for k, v in regimes_map.items() if v in sup_reg_sel]
+            df_sup_f = df_sup[
+                df_sup["remote_work"].isin(sup_raw) &
+                df_sup["supervisor"].isin(sup_confort_sel)
+            ]
+            tab_sup = pd.crosstab(df_sup_f["remote_work"], df_sup_f["supervisor"])
+            for col in sup_confort_sel:
+                if col not in tab_sup.columns:
+                    tab_sup[col] = 0
+            tab_sup = tab_sup[sup_confort_sel]
+            tab_sup_pct = (tab_sup.div(tab_sup.sum(axis=1), axis=0) * 100).round(1).reset_index()
+            tab_sup_long = tab_sup_pct.melt(
+                id_vars="remote_work", var_name="Conforto com Supervisor", value_name="Proporção (%)"
+            )
+            tab_sup_long["Regime"] = tab_sup_long["remote_work"].map(regimes_map)
+            fig_sup = px.bar(
+                tab_sup_long, x="Regime", y="Proporção (%)",
+                color="Conforto com Supervisor", barmode="group",
+                color_discrete_map={
+                    "Yes": CORES["teal"], "Some of them": CORES["amarelo"], "No": CORES["acento_quente"]
+                },
+                text="Proporção (%)",
+                title="Conforto em Falar com Supervisor × Regime",
+            )
+            fig_sup.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+            layout_plotly(fig_sup, altura=380)
+            st.plotly_chart(fig_sup, use_container_width=True)
+
+    with col_g2:
         df_col = df[df["remote_work"].isin(["Yes", "No"])].copy()
         df_col = df_col[df_col["coworkers"].isin(["Yes", "No", "Some of them"])]
-        tab_col = pd.crosstab(df_col["remote_work"], df_col["coworkers"])
-        tab_col_pct = (tab_col.div(tab_col.sum(axis=1), axis=0) * 100).round(1).reset_index()
-        tab_col_long = tab_col_pct.melt(
-            id_vars="remote_work", var_name="Conforto com Colegas", value_name="Proporção (%)"
+
+        col_opcoes = ["Yes", "No", "Some of them"]
+
+        col_reg_sel = filtro_legenda(
+            "Filtrar regime (colegas):",
+            reg_opcoes,
+            key="a2_col_reg"
         )
-        tab_col_long["Regime"] = tab_col_long["remote_work"].map(
-            {"Yes": "Remoto", "No": "Presencial"}
+        col_confort_sel = filtro_legenda(
+            "Filtrar conforto com colegas:",
+            col_opcoes,
+            key="a2_col_confort"
         )
-        fig_col = px.bar(
-            tab_col_long, x="Regime", y="Proporção (%)",
-            color="Conforto com Colegas", barmode="group",
-            color_discrete_map={
-                "Yes": CORES["teal"], "Some of them": CORES["amarelo"], "No": CORES["acento_quente"]
-            },
-            text="Proporção (%)",
-            title="Conforto em Falar com Colegas × Regime",
-        )
-        fig_col.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-        layout_plotly(fig_col, altura=380)
-        st.plotly_chart(fig_col, use_container_width=True)
+
+        if col_reg_sel and col_confort_sel:
+            col_raw = [k for k, v in regimes_map.items() if v in col_reg_sel]
+            df_col_f = df_col[
+                df_col["remote_work"].isin(col_raw) &
+                df_col["coworkers"].isin(col_confort_sel)
+            ]
+            tab_col = pd.crosstab(df_col_f["remote_work"], df_col_f["coworkers"])
+            for col in col_confort_sel:
+                if col not in tab_col.columns:
+                    tab_col[col] = 0
+            tab_col = tab_col[col_confort_sel]
+            tab_col_pct = (tab_col.div(tab_col.sum(axis=1), axis=0) * 100).round(1).reset_index()
+            tab_col_long = tab_col_pct.melt(
+                id_vars="remote_work", var_name="Conforto com Colegas", value_name="Proporção (%)"
+            )
+            tab_col_long["Regime"] = tab_col_long["remote_work"].map(regimes_map)
+            fig_col = px.bar(
+                tab_col_long, x="Regime", y="Proporção (%)",
+                color="Conforto com Colegas", barmode="group",
+                color_discrete_map={
+                    "Yes": CORES["teal"], "Some of them": CORES["amarelo"], "No": CORES["acento_quente"]
+                },
+                text="Proporção (%)",
+                title="Conforto em Falar com Colegas × Regime",
+            )
+            fig_col.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+            layout_plotly(fig_col, altura=380)
+            st.plotly_chart(fig_col, use_container_width=True)
 
     insight(
         "O Paradoxo Remoto: Embora relatem maior frequência de interferência no trabalho (16%), profissionais remotos sentem MAIOR conforto em dialogar com chefes e colegas do que os presenciais. A distância atua como um 'escudo' que facilita a comunicação, mas não impede o esgotamento."
@@ -507,31 +699,53 @@ elif ato == "Ato 2 — O Ecossistema Corporativo":
     ].copy()
     df_emp["Empresa"] = df_emp["no_employees"].map(mapa_empresa)
 
-    tab_emp = pd.crosstab(df_emp["Empresa"], df_emp["leave"])
-    tab_emp = tab_emp[[c for c in ordem_leave if c in tab_emp.columns]]
-    tab_emp_pct = (tab_emp.div(tab_emp.sum(axis=1), axis=0) * 100).round(1).reset_index()
-    tab_emp_long = tab_emp_pct.melt(
-        id_vars="Empresa", var_name="Facilidade de Licença", value_name="Proporção (%)"
-    )
+    col_emp1, col_emp2 = st.columns(2)
+    with col_emp1:
+        empresa_sel = filtro_legenda(
+            "Filtrar tamanho de empresa:",
+            ordem_empresa,
+            key="a2_empresa"
+        )
+    with col_emp2:
+        leave_sel = filtro_legenda(
+            "Filtrar facilidade de licença:",
+            ordem_leave,
+            key="a2_leave"
+        )
 
-    fig_emp = px.bar(
-        tab_emp_long, x="Empresa", y="Proporção (%)",
-        color="Facilidade de Licença", barmode="group",
-        color_discrete_sequence=PALETA_PLOTLY,
-        category_orders={
-            "Empresa": ordem_empresa,
-            "Facilidade de Licença": ordem_leave
-        },
-        text="Proporção (%)",
-        title="Facilidade de Tirar Licença Médica × Tamanho da Empresa",
-    )
-    fig_emp.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-    layout_plotly(fig_emp, altura=450)
-    st.plotly_chart(fig_emp, use_container_width=True)
+    if empresa_sel and leave_sel:
+        df_emp_f = df_emp[
+            df_emp["Empresa"].isin(empresa_sel) &
+            df_emp["leave"].isin(leave_sel)
+        ]
+        tab_emp = pd.crosstab(df_emp_f["Empresa"], df_emp_f["leave"])
+        for col in leave_sel:
+            if col not in tab_emp.columns:
+                tab_emp[col] = 0
+        tab_emp = tab_emp[leave_sel]
+        tab_emp_pct = (tab_emp.div(tab_emp.sum(axis=1), axis=0) * 100).round(1).reset_index()
+        tab_emp_long = tab_emp_pct.melt(
+            id_vars="Empresa", var_name="Facilidade de Licença", value_name="Proporção (%)"
+        )
 
-    insight(
-        "O Paradoxo do Crescimento: Em startups (1-5), a licença depende da empatia do chefe, gerando extremos de facilidade e dificuldade. Já em corporações (1000+), a barreira muda: a dificuldade cai, mas a burocracia gera uma 'cegueira' onde 54,4% dos funcionários sequer sabem como pedir ajuda."
-    )
+        fig_emp = px.bar(
+            tab_emp_long, x="Empresa", y="Proporção (%)",
+            color="Facilidade de Licença", barmode="group",
+            color_discrete_sequence=PALETA_PLOTLY,
+            category_orders={
+                "Empresa": [e for e in ordem_empresa if e in empresa_sel],
+                "Facilidade de Licença": [l for l in ordem_leave if l in leave_sel]
+            },
+            text="Proporção (%)",
+            title="Facilidade de Tirar Licença Médica × Tamanho da Empresa",
+        )
+        fig_emp.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+        layout_plotly(fig_emp, altura=450)
+        st.plotly_chart(fig_emp, use_container_width=True)
+
+        insight(
+            "O Paradoxo do Crescimento: Em startups (1-5), a licença depende da empatia do chefe, gerando extremos de facilidade e dificuldade. Já em corporações (1000+), a barreira muda: a dificuldade cai, mas a burocracia gera uma 'cegueira' onde 54,4% dos funcionários sequer sabem como pedir ajuda."
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -558,35 +772,69 @@ elif ato == "Ato 3 — A Cultura do Medo":
         df["treatment"].isin(["Yes", "No"])
     ].copy()
 
-    tab_anon = pd.crosstab(df_anon["anonymity"], df_anon["treatment"])
-    tab_anon_pct = (tab_anon.div(tab_anon.sum(axis=1), axis=0) * 100).round(1).reset_index()
-    tab_anon_long = tab_anon_pct.melt(
-        id_vars="anonymity", var_name="Buscou Tratamento", value_name="Proporção (%)"
-    )
     mapa_anon = {"Yes": "Sigilo Garantido", "No": "Sem Sigilo", "Don't know": "Não Sabe"}
-    tab_anon_long["Anonimato"] = tab_anon_long["anonymity"].map(mapa_anon)
+    anon_disponiveis = ["Sigilo Garantido", "Sem Sigilo", "Não Sabe"]
+    trat_disponiveis = ["Yes", "No"]
 
-    fig_anon = px.bar(
-        tab_anon_long, x="Anonimato", y="Proporção (%)",
-        color="Buscou Tratamento", barmode="group",
-        color_discrete_map={"Yes": CORES["teal"], "No": CORES["acento_quente"]},
-        text="Proporção (%)",
-        title="Garantia de Anonimato × Busca por Tratamento",
-        category_orders={"Anonimato": ["Sigilo Garantido", "Sem Sigilo", "Não Sabe"]},
-    )
-    fig_anon.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-    layout_plotly(fig_anon, altura=430)
-    st.plotly_chart(fig_anon, use_container_width=True)
+    col_a1, col_a2 = st.columns(2)
+    with col_a1:
+        anon_sel = filtro_legenda(
+            "Filtrar anonimato:",
+            anon_disponiveis,
+            key="a3_anon"
+        )
+    with col_a2:
+        trat_anon_sel = filtro_legenda(
+            "Filtrar busca por tratamento:",
+            trat_disponiveis,
+            key="a3_trat"
+        )
 
-    pct_anon_sim   = tab_anon_pct.set_index("anonymity").loc["Yes",         "Yes"]
-    pct_anon_nao   = tab_anon_pct.set_index("anonymity").loc["No",          "Yes"]
-    pct_anon_dunno = tab_anon_pct.set_index("anonymity").loc["Don't know",  "Yes"]
-    insight(
-        f"**O Preço da Incerteza:** Quando o sigilo é garantido, **{pct_anon_sim:.1f}%** buscam tratamento. "
-        f"A grande revelação é que a incerteza é pior do que a falta de sigilo: quando a empresa falha em comunicar "
-        f"a confidencialidade ('Não Sabe'), a busca por ajuda despenca para apenas **{pct_anon_dunno:.1f}%**. "
-        "**O medo do desconhecido silencia o funcionário.**"
-    )
+    if anon_sel and trat_anon_sel:
+        anon_raw = [k for k, v in mapa_anon.items() if v in anon_sel]
+        df_anon_f = df_anon[
+            df_anon["anonymity"].isin(anon_raw) &
+            df_anon["treatment"].isin(trat_anon_sel)
+        ]
+        tab_anon = pd.crosstab(df_anon_f["anonymity"], df_anon_f["treatment"])
+        for col in trat_anon_sel:
+            if col not in tab_anon.columns:
+                tab_anon[col] = 0
+        tab_anon = tab_anon[trat_anon_sel]
+        tab_anon_pct = (tab_anon.div(tab_anon.sum(axis=1), axis=0) * 100).round(1).reset_index()
+        tab_anon_long = tab_anon_pct.melt(
+            id_vars="anonymity", var_name="Buscou Tratamento", value_name="Proporção (%)"
+        )
+        tab_anon_long["Anonimato"] = tab_anon_long["anonymity"].map(mapa_anon)
+
+        fig_anon = px.bar(
+            tab_anon_long, x="Anonimato", y="Proporção (%)",
+            color="Buscou Tratamento", barmode="group",
+            color_discrete_map={"Yes": CORES["teal"], "No": CORES["acento_quente"]},
+            text="Proporção (%)",
+            title="Garantia de Anonimato × Busca por Tratamento",
+            category_orders={
+                "Anonimato": [v for k, v in mapa_anon.items() if k in anon_raw],
+                "Buscou Tratamento": trat_anon_sel,
+            },
+        )
+        fig_anon.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+        layout_plotly(fig_anon, altura=430)
+        st.plotly_chart(fig_anon, use_container_width=True)
+
+        try:
+            tab_full = pd.crosstab(df_anon["anonymity"], df_anon["treatment"])
+            tab_full_pct = (tab_full.div(tab_full.sum(axis=1), axis=0) * 100).round(1)
+            pct_anon_sim   = tab_full_pct.loc["Yes",         "Yes"]
+            pct_anon_dunno = tab_full_pct.loc["Don't know",  "Yes"]
+            insight(
+                f"**O Preço da Incerteza:** Quando o sigilo é garantido, **{pct_anon_sim:.1f}%** buscam tratamento. "
+                f"A grande revelação é que a incerteza é pior do que a falta de sigilo: quando a empresa falha em comunicar "
+                f"a confidencialidade ('Não Sabe'), a busca por ajuda despenca para apenas **{pct_anon_dunno:.1f}%**. "
+                "**O medo do desconhecido silencia o funcionário.**"
+            )
+        except KeyError:
+            pass
 
     st.divider()
 
@@ -601,34 +849,69 @@ elif ato == "Ato 3 — A Cultura do Medo":
         df["treatment"].isin(["Yes", "No"])
     ].copy()
 
-    tab_pun = pd.crosstab(df_pun["obs_consequence"], df_pun["treatment"])
-    tab_pun_pct = (tab_pun.div(tab_pun.sum(axis=1), axis=0) * 100).round(1).reset_index()
-    tab_pun_long = tab_pun_pct.melt(
-        id_vars="obs_consequence", var_name="Buscou Tratamento", value_name="Proporção (%)"
-    )
-    tab_pun_long["Viu Consequências"] = tab_pun_long["obs_consequence"].map(
-        {"Yes": "Viu colegas punidos", "No": "Não viu punições"}
-    )
+    mapa_pun = {"Yes": "Viu colegas punidos", "No": "Não viu punições"}
+    pun_disponiveis  = ["Viu colegas punidos", "Não viu punições"]
+    trat_p_disponiveis = ["Yes", "No"]
 
-    fig_pun = px.bar(
-        tab_pun_long, x="Viu Consequências", y="Proporção (%)",
-        color="Buscou Tratamento", barmode="group",
-        color_discrete_map={"Yes": CORES["teal"], "No": CORES["acento_quente"]},
-        text="Proporção (%)",
-        title="Observação de Consequências Negativas × Busca por Tratamento",
-    )
-    fig_pun.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
-    layout_plotly(fig_pun, altura=430)
-    st.plotly_chart(fig_pun, use_container_width=True)
+    col_p1, col_p2 = st.columns(2)
+    with col_p1:
+        pun_sel = filtro_legenda(
+            "Filtrar observação de consequências:",
+            pun_disponiveis,
+            key="a3_pun"
+        )
+    with col_p2:
+        trat_p_sel = filtro_legenda(
+            "Filtrar busca por tratamento:",
+            trat_p_disponiveis,
+            key="a3_trat_p"
+        )
 
-    pct_pun_sim = tab_pun_pct.set_index("obs_consequence").loc["Yes", "Yes"]
-    pct_pun_nao = tab_pun_pct.set_index("obs_consequence").loc["No",  "Yes"]
-    insight(
-        f"**A Toxicidade Adoece:** Quem presencia colegas sendo punidos tem uma taxa de busca por tratamento médico "
-        f"absurdamente maior (**{pct_pun_sim:.1f}%**) do que quem trabalha em ambientes seguros (**{pct_pun_nao:.1f}%**). "
-        "O medo e a cultura punitiva não silenciam a dor, eles agravam o esgotamento do funcionário "
-        "e o forçam a buscar terapia clínica externa."
-    )
+    if pun_sel and trat_p_sel:
+        pun_raw = [k for k, v in mapa_pun.items() if v in pun_sel]
+        df_pun_f = df_pun[
+            df_pun["obs_consequence"].isin(pun_raw) &
+            df_pun["treatment"].isin(trat_p_sel)
+        ]
+        tab_pun = pd.crosstab(df_pun_f["obs_consequence"], df_pun_f["treatment"])
+        for col in trat_p_sel:
+            if col not in tab_pun.columns:
+                tab_pun[col] = 0
+        tab_pun = tab_pun[trat_p_sel]
+        tab_pun_pct = (tab_pun.div(tab_pun.sum(axis=1), axis=0) * 100).round(1).reset_index()
+        tab_pun_long = tab_pun_pct.melt(
+            id_vars="obs_consequence", var_name="Buscou Tratamento", value_name="Proporção (%)"
+        )
+        tab_pun_long["Viu Consequências"] = tab_pun_long["obs_consequence"].map(mapa_pun)
+
+        fig_pun = px.bar(
+            tab_pun_long, x="Viu Consequências", y="Proporção (%)",
+            color="Buscou Tratamento", barmode="group",
+            color_discrete_map={"Yes": CORES["teal"], "No": CORES["acento_quente"]},
+            text="Proporção (%)",
+            title="Observação de Consequências Negativas × Busca por Tratamento",
+            category_orders={
+                "Viu Consequências": [v for k, v in mapa_pun.items() if k in pun_raw],
+                "Buscou Tratamento": trat_p_sel,
+            },
+        )
+        fig_pun.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+        layout_plotly(fig_pun, altura=430)
+        st.plotly_chart(fig_pun, use_container_width=True)
+
+        try:
+            tab_full_pun = pd.crosstab(df_pun["obs_consequence"], df_pun["treatment"])
+            tab_full_pun_pct = (tab_full_pun.div(tab_full_pun.sum(axis=1), axis=0) * 100).round(1)
+            pct_pun_sim = tab_full_pun_pct.loc["Yes", "Yes"]
+            pct_pun_nao = tab_full_pun_pct.loc["No",  "Yes"]
+            insight(
+                f"**A Toxicidade Adoece:** Quem presencia colegas sendo punidos tem uma taxa de busca por tratamento médico "
+                f"absurdamente maior (**{pct_pun_sim:.1f}%**) do que quem trabalha em ambientes seguros (**{pct_pun_nao:.1f}%**). "
+                "O medo e a cultura punitiva não silenciam a dor, eles agravam o esgotamento do funcionário "
+                "e o forçam a buscar terapia clínica externa."
+            )
+        except KeyError:
+            pass
 
     st.divider()
     gancho(
