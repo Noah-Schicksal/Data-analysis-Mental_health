@@ -1,3 +1,4 @@
+import re
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -87,7 +88,8 @@ st.markdown("""
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def insight(texto: str):
-    st.markdown(f'<div class="insight-box">💡 {texto}</div>', unsafe_allow_html=True)
+    texto_html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', texto)
+    st.markdown(f'<div class="insight-box">💡 {texto_html}</div>', unsafe_allow_html=True)
 
 
 def gancho(texto: str):
@@ -479,9 +481,7 @@ elif ato == "Ato 2 — O Ecossistema Corporativo":
         st.plotly_chart(fig_col, use_container_width=True)
 
     insight(
-        "Profissionais remotos relatam maior interferência 'Often' e 'Sometimes', "
-        "AND têm MENOS facilidade de conversar com supervisores e colegas. "
-        "O isolamento amplifica o problema sem oferecer rede de suporte."
+        "O Paradoxo Remoto: Embora relatem maior frequência de interferência no trabalho (16%), profissionais remotos sentem MAIOR conforto em dialogar com chefes e colegas do que os presenciais. A distância atua como um 'escudo' que facilita a comunicação, mas não impede o esgotamento."
     )
 
     st.divider()
@@ -530,9 +530,7 @@ elif ato == "Ato 2 — O Ecossistema Corporativo":
     st.plotly_chart(fig_emp, use_container_width=True)
 
     insight(
-        "Startups de 1-5 pessoas têm maior proporção de 'Very easy', mas também mais incerteza. "
-        "Grandes corporações (1000+) concentram mais respostas 'Don't know', "
-        "sugerindo que o processo é pouco comunicado ou acessível."
+        "O Paradoxo do Crescimento: Em startups (1-5), a licença depende da empatia do chefe, gerando extremos de facilidade e dificuldade. Já em corporações (1000+), a barreira muda: a dificuldade cai, mas a burocracia gera uma 'cegueira' onde 54,4% dos funcionários sequer sabem como pedir ajuda."
     )
 
 
@@ -584,19 +582,18 @@ elif ato == "Ato 3 — A Cultura do Medo":
     pct_anon_nao   = tab_anon_pct.set_index("anonymity").loc["No",          "Yes"]
     pct_anon_dunno = tab_anon_pct.set_index("anonymity").loc["Don't know",  "Yes"]
     insight(
-        f"Com sigilo garantido: **{pct_anon_sim:.1f}%** buscam tratamento. "
-        f"Sem sigilo: apenas **{pct_anon_nao:.1f}%**. "
-        f"Quando a empresa não comunica claramente o sigilo ('Não sabe'): **{pct_anon_dunno:.1f}%**. "
-        "**O anonimato não é um detalhe — é condição para que qualquer programa de saúde mental funcione.**"
+        f"**O Preço da Incerteza:** Quando o sigilo é garantido, **{pct_anon_sim:.1f}%** buscam tratamento. "
+        f"A grande revelação é que a incerteza é pior do que a falta de sigilo: quando a empresa falha em comunicar "
+        f"a confidencialidade ('Não Sabe'), a busca por ajuda despenca para apenas **{pct_anon_dunno:.1f}%**. "
+        "**O medo do desconhecido silencia o funcionário.**"
     )
 
     st.divider()
 
     # ── 3.2 Cultura Punitiva × Tratamento ───────────────────────────────────
-    st.markdown("#### 3.2 — A Cultura da Punição")
+    st.markdown("#### 3.2 — A Toxicidade Adoece")
     st.markdown(
-        "Quando um funcionário vê colegas sofrerem consequências negativas "
-        "por revelar problemas mentais, ele aprende a silenciar."
+        "Presenciar retaliações não reprime a busca por tratamento, mas sim a causa. A cultura do medo esgota o funcionário e o força a procurar intervenção psiquiátrica fora da empresa."
     )
 
     df_pun = df[
@@ -627,9 +624,10 @@ elif ato == "Ato 3 — A Cultura do Medo":
     pct_pun_sim = tab_pun_pct.set_index("obs_consequence").loc["Yes", "Yes"]
     pct_pun_nao = tab_pun_pct.set_index("obs_consequence").loc["No",  "Yes"]
     insight(
-        f"Quem **viu colegas serem punidos** busca tratamento em **{pct_pun_sim:.1f}%** dos casos. "
-        f"Quem **não viu punições** busca em **{pct_pun_nao:.1f}%**. "
-        "O medo aprendido é real: testemunhar punição silencia toda a equipe."
+        f"**A Toxicidade Adoece:** Quem presencia colegas sendo punidos tem uma taxa de busca por tratamento médico "
+        f"absurdamente maior (**{pct_pun_sim:.1f}%**) do que quem trabalha em ambientes seguros (**{pct_pun_nao:.1f}%**). "
+        "O medo e a cultura punitiva não silenciam a dor, eles agravam o esgotamento do funcionário "
+        "e o forçam a buscar terapia clínica externa."
     )
 
     st.divider()
