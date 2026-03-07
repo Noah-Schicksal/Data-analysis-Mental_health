@@ -641,7 +641,7 @@ elif ato == "Ato 3 — A Cultura do Medo":
 # ATO 4 — O MODELO PREDITIVO
 # ═══════════════════════════════════════════════════════════════════════════════
 elif ato == "Ato 4 — O Modelo Preditivo":
-    st.subheader(":material/model_training: Ato 4 — O Gran Finale: O Modelo Preditivo")
+    st.subheader(":material/model_training: Ato 4 — O Modelo Preditivo")
     st.markdown(
         "**Premissa:** O sistema falha. As pessoas têm medo de pedir ajuda. "
         "Então o modelo preditivo permite que a empresa aja **antes** do funcionário precisar pedir socorro."
