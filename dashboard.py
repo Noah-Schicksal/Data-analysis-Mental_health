@@ -236,7 +236,150 @@ with st.sidebar:
 # VISÃO GERAL
 # ═══════════════════════════════════════════════════════════════════════════════
 if ato == "Visão Geral":
-    st.subheader(":material/dataset: Visão Geral do Dataset")
+    st.subheader(":material/dataset: Introdução & Visão Geral")
+
+    # ── A Equipe ──────────────────────────────────────────────────────────────
+    st.markdown(
+        "**A Equipe:** "
+        "Alan Lima &nbsp;·&nbsp; Antonio Feitosa &nbsp;·&nbsp; Gabriel Arthur "
+        "&nbsp;·&nbsp; Heloiza Mendes &nbsp;·&nbsp; Michael Jhonathan",
+        unsafe_allow_html=True,
+    )
+
+    # ── Stack Tecnológico ─────────────────────────────────────────────────────
+    st.markdown(
+        "> **Stack:** Python &nbsp;·&nbsp; Pandas &nbsp;·&nbsp; Scikit-Learn "
+        "&nbsp;·&nbsp; Plotly &nbsp;·&nbsp; Streamlit",
+        unsafe_allow_html=True,
+    )
+
+    st.divider()
+
+    # ── Cards de Notícia Reais ────────────────────────────────────────────────
+    st.markdown(":material/newspaper: **O Problema em Números: O Que Diz a Imprensa**")
+    st.markdown(
+        "Antes de entrar nos dados, vale entender o contexto externo que motivou "
+        "esta pesquisa. Dois estudos recentes reforçam que a área de tecnologia "
+        "concentra um dos maiores índices de esgotamento mental do mercado de trabalho:"
+    )
+
+    card1_url = "https://exame.com/carreira/veja-as-6-areas-que-mais-sofrem-com-burnout-segundo-estudo-que-usa-ia/"
+    card2_url = "https://exame.com/bussola/a-tecnologia-como-aliada-na-prevencao-do-burnout-no-ambiente-corporativo/"
+
+    nc1, nc2 = st.columns(2)
+    with nc1:
+        st.markdown(
+            f"""
+            <div style="background:#fff8e1;border-left:4px solid #ffb74d;
+                        border-radius:8px;padding:1rem 1.2rem;">
+                <p style="margin:0 0 4px 0;font-size:0.78rem;font-weight:700;
+                           color:#546e7a;text-transform:uppercase;letter-spacing:0.6px;">
+                    Exame — Carreira · Ago 2023
+                </p>
+                <p style="margin:0 0 10px 0;font-size:0.96rem;font-style:italic;
+                           color:#263238;line-height:1.45;font-weight:600;">
+                    "Veja as 6 áreas que mais sofrem com burnout, segundo estudo que usa IA"
+                </p>
+                <p style="margin:0 0 12px 0;font-size:0.88rem;color:#37474f;line-height:1.5;">
+                    Um estudo com mais de 600 funcionários de 17 organizações brasileiras,
+                    conduzido com IA pela startup Way Minder, identificou a área de
+                    <strong>TI entre as 6 que mais sofrem com burnout no Brasil</strong>,
+                    com pontuação de 36,61 pontos — índice classificado como
+                    "moderado a grave". O CEO da empresa alerta: "acima de 30 já é sinal
+                    de alerta para a doença em estágio moderado."
+                </p>
+                <a href="{card1_url}" target="_blank"
+                   style="font-size:0.82rem;color:#00897b;font-weight:600;
+                          text-decoration:none;">
+                    Ler matéria completa →
+                </a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    with nc2:
+        st.markdown(
+            f"""
+            <div style="background:#e8f5e9;border-left:4px solid #00897b;
+                        border-radius:8px;padding:1rem 1.2rem;">
+                <p style="margin:0 0 4px 0;font-size:0.78rem;font-weight:700;
+                           color:#546e7a;text-transform:uppercase;letter-spacing:0.6px;">
+                    Exame / Bússola · Mar 2025
+                </p>
+                <p style="margin:0 0 10px 0;font-size:0.96rem;font-style:italic;
+                           color:#263238;line-height:1.45;font-weight:600;">
+                    "A tecnologia como aliada na prevenção do burnout no ambiente corporativo"
+                </p>
+                <p style="margin:0 0 12px 0;font-size:0.88rem;color:#37474f;line-height:1.5;">
+                    Segundo a Associação Nacional de Medicina do Trabalho (ANAMT),
+                    <strong>30% dos trabalhadores brasileiros sofrem de burnout</strong> —
+                    síndrome reconhecida como doença ocupacional pelo Ministério da Saúde
+                    em 2024. O Brasil ocupa a <strong>2ª posição no ranking mundial</strong>
+                    de casos. O artigo destaca que os profissionais de tecnologia estão
+                    no centro dessa crise, pressionados por alta demanda, prazos curtos
+                    e falta de políticas de saúde mental nas empresas.
+                </p>
+                <a href="{card2_url}" target="_blank"
+                   style="font-size:0.82rem;color:#00897b;font-weight:600;
+                          text-decoration:none;">
+                    Ler matéria completa →
+                </a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.divider()
+
+    # ── Dataset e Variáveis ───────────────────────────────────────────────────
+    st.markdown(":material/table: **O Dataset**")
+    st.markdown(
+        "Esta análise é baseada no **OSMI Mental Health in Tech Survey 2014** — "
+        "uma pesquisa global com profissionais do setor de tecnologia. "
+        "As variáveis trabalhadas são **comportamentais e de ambiente corporativo**, "
+        "não diagnósticos médicos, o que nos permite identificar fatores de risco "
+        "estruturais e propor intervenções organizacionais."
+    )
+
+    with st.expander("Ver Dicionário de Dados Completo"):
+        st.markdown(
+            """
+| Coluna | Pergunta original (traduzida) |
+|--------|-------------------------------|
+| `Timestamp` | Horário em que o questionário foi enviado |
+| `Age` | Idade do respondente |
+| `Gender` | Gênero do respondente |
+| `Country` | País do respondente |
+| `state` | Estado ou território (para respondentes dos EUA) |
+| `self_employed` | O respondente é autônomo/freelancer? |
+| `family_history` | **Possui histórico familiar de doença mental?** |
+| `treatment` | **Já buscou tratamento para alguma condição de saúde mental?** |
+| `work_interfere` | **Se possui alguma condição mental, ela interfere no seu trabalho?** |
+| `no_employees` | **Quantos funcionários tem a empresa ou organização?** |
+| `remote_work` | **Trabalha remotamente (fora do escritório) pelo menos 50% do tempo?** |
+| `tech_company` | O empregador é principalmente uma empresa de tecnologia? |
+| `benefits` | O empregador oferece benefícios de saúde mental? |
+| `care_options` | Conhece as opções de cuidado de saúde mental que o empregador oferece? |
+| `wellness_program` | O empregador já discutiu saúde mental como parte de um programa de bem-estar? |
+| `seek_help` | O empregador disponibiliza recursos para aprender mais sobre saúde mental e como buscar ajuda? |
+| `anonymity` | **O anonimato é protegido ao usar recursos de tratamento de saúde mental?** |
+| `leave` | **Quão fácil é tirar licença médica para problemas de saúde mental?** |
+| `mental_health_consequence` | Discutir saúde mental com o empregador teria consequências negativas? |
+| `phys_health_consequence` | Discutir saúde física com o empregador teria consequências negativas? |
+| `coworkers` | Estaria disposto a discutir saúde mental com colegas de trabalho? |
+| `supervisor` | Estaria disposto a discutir saúde mental com seu supervisor direto? |
+| `mental_health_interview` | Mencionaria saúde mental em uma entrevista de emprego? |
+| `phys_health_interview` | Mencionaria saúde física em uma entrevista de emprego? |
+| `mental_vs_physical` | Sente que o empregador leva saúde mental tão a sério quanto saúde física? |
+| `obs_consequence` | **Já ouviu ou observou consequências negativas para colegas com condições de saúde mental?** |
+| `comments` | Notas ou comentários adicionais |
+            """
+        )
+        st.caption("As colunas em **negrito** são as variáveis centrais da nossa análise.")
+
+    st.divider()
+
+    st.subheader(":material/bar_chart: Visão Geral do Dataset")
 
     pct_trat   = df["treatment"].value_counts(normalize=True).get("Yes", 0) * 100
     pct_remoto = df["remote_work"].value_counts(normalize=True).get("Yes", 0) * 100
