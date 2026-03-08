@@ -247,10 +247,23 @@ if ato == "Visão Geral":
     )
 
     # ── Stack Tecnológico ─────────────────────────────────────────────────────
+    st.markdown("##### :material/code: Stack Tecnológica")
     st.markdown(
-        "> **Stack:** Python &nbsp;·&nbsp; Pandas &nbsp;·&nbsp; Scikit-Learn "
-        "&nbsp;·&nbsp; Plotly &nbsp;·&nbsp; Streamlit",
-        unsafe_allow_html=True,
+        """
+| Biblioteca | Finalidade no Projeto |
+|---|---|
+| **Pandas** | Manipulação, limpeza e transformação dos dados tabulares do survey (DataFrames, crosstabs, agregações) |
+| **NumPy** | Operações numéricas de suporte ao Pandas e ao Scikit-Learn (arrays, cálculos vetorizados) |
+| **Matplotlib** | Motor de renderização de gráficos estáticos; utilizado internamente pelo Seaborn e pelo `ConfusionMatrixDisplay` do Scikit-Learn |
+| **Seaborn** | Visualizações estatísticas de alto nível (heatmaps, distribuições) durante a fase exploratória no notebook |
+| **Scikit-Learn** | Pipeline completo de Machine Learning — pré-processamento (`LabelEncoder`), divisão treino/teste, modelos (`RandomForest`, `LogisticRegression`) e métricas (`F1-Score`, `Accuracy`, matriz de confusão) |
+| **Streamlit** | Framework web para construção do dashboard interativo — layout, widgets, caching e deploy |
+| **Plotly** | Gráficos interativos (barras, pizza, barras agrupadas) com hover, zoom e responsividade no dashboard |
+| **Psutil** | Monitoramento de recursos do sistema (CPU, memória) para garantir a performance durante o processamento |
+| **Nbformat** | Leitura e manipulação programática de notebooks Jupyter (.ipynb) para integração com o pipeline de dados |
+| **Ipywidgets** | Widgets interativos dentro dos notebooks Jupyter usados na fase de exploração e validação dos dados |
+| **Jupyter** | Ambiente de desenvolvimento interativo utilizado na análise exploratória e na preparação dos dados (EDA) |
+        """
     )
 
     st.divider()
