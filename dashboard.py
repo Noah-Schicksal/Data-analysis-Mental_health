@@ -4,16 +4,6 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import (
-    f1_score, accuracy_score, confusion_matrix,
-    classification_report, ConfusionMatrixDisplay
-)
 
 # ── Paleta de cores ─────────────────────────────────────────────────────────
 CORES = {
@@ -147,60 +137,6 @@ def carregar_dados():
         return pd.read_csv("data/raw/survey.csv")
 
 
-@st.cache_data
-def treinar_modelo(df_raw):
-    FEATURES = ["remote_work", "anonymity", "leave", "no_employees", "supervisor"]
-    TARGET   = "work_interfere"
-
-    df = df_raw[FEATURES + [TARGET]].dropna().copy()
-    df[TARGET] = df[TARGET].map(
-        {"Often": 1, "Sometimes": 1, "Rarely": 0, "Never": 0}
-    )
-    df = df.dropna(subset=[TARGET])
-
-    encoders = {}
-    for col in FEATURES:
-        le = LabelEncoder()
-        df[col] = le.fit_transform(df[col].astype(str))
-        encoders[col] = le
-
-    X = df[FEATURES]
-    y = df[TARGET].astype(int)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
-
-    rf  = RandomForestClassifier(n_estimators=100, random_state=42, class_weight="balanced")
-    lr  = LogisticRegression(random_state=42, max_iter=500, class_weight="balanced")
-
-    rf.fit(X_train, y_train)
-    lr.fit(X_train, y_train)
-
-    y_pred_rf = rf.predict(X_test)
-    y_pred_lr = lr.predict(X_test)
-
-    resultados = {
-        "rf":  {"modelo": rf,  "y_pred": y_pred_rf, "nome": "Random Forest"},
-        "lr":  {"modelo": lr,  "y_pred": y_pred_lr, "nome": "Logistic Regression"},
-    }
-    metricas = {}
-    for k, v in resultados.items():
-        metricas[k] = {
-            "f1":       round(f1_score(y_test,       v["y_pred"]), 3),
-            "accuracy": round(accuracy_score(y_test,  v["y_pred"]), 3),
-            "cm":       confusion_matrix(y_test, v["y_pred"]),
-            "nome":     v["nome"],
-        }
-
-    importancias = pd.DataFrame({
-        "Feature": FEATURES,
-        "Importância": rf.feature_importances_
-    }).sort_values("Importância", ascending=True)
-
-    return metricas, importancias, y_test, resultados
-
-
 df = carregar_dados()
 
 # ── Cabeçalho ─────────────────────────────────────────────────────────────────
@@ -253,12 +189,12 @@ if ato == "Visão Geral":
 | Biblioteca | Finalidade no Projeto |
 |---|---|
 | **Pandas** | Manipulação, limpeza e transformação dos dados tabulares do survey (DataFrames, crosstabs, agregações) |
-| **NumPy** | Operações numéricas de suporte ao Pandas e ao Scikit-Learn (arrays, cálculos vetorizados) |
-| **Matplotlib** | Motor de renderização de gráficos estáticos; utilizado internamente pelo Seaborn e pelo `ConfusionMatrixDisplay` do Scikit-Learn |
-| **Seaborn** | Visualizações estatísticas de alto nível (heatmaps, distribuições) durante a fase exploratória no notebook |
-| **Scikit-Learn** | Pipeline completo de Machine Learning — pré-processamento (`LabelEncoder`), divisão treino/teste, modelos (`RandomForest`, `LogisticRegression`) e métricas (`F1-Score`, `Accuracy`, matriz de confusão) |
+| **NumPy** | Operações numéricas de suporte ao Pandas (arrays, cálculos vetorizados) |
 | **Streamlit** | Framework web para construção do dashboard interativo — layout, widgets, caching e deploy |
 | **Plotly** | Gráficos interativos (barras, pizza, barras agrupadas) com hover, zoom e responsividade no dashboard |
+| **Matplotlib** | Motor de renderização de gráficos estáticos; utilizado na fase exploratória e nos notebooks de análise |
+| **Seaborn** | Visualizações estatísticas de alto nível (heatmaps, distribuições) durante a análise exploratória nos notebooks |
+| **Scikit-Learn** | Biblioteca proposta para o pipeline de ML — `LabelEncoder`, `train_test_split`, `RandomForestClassifier`, `LogisticRegression` e métricas (`F1-Score`, `Accuracy`, matriz de confusão) |
 | **Psutil** | Monitoramento de recursos do sistema (CPU, memória) para garantir a performance durante o processamento |
 | **Nbformat** | Leitura e manipulação programática de notebooks Jupyter (.ipynb) para integração com o pipeline de dados |
 | **Ipywidgets** | Widgets interativos dentro dos notebooks Jupyter usados na fase de exploração e validação dos dados |
@@ -1083,112 +1019,201 @@ elif ato == "Ato 4 — O Modelo Preditivo":
     st.subheader(":material/model_training: Ato 4 — O Modelo Preditivo")
     st.markdown(
         "**Premissa:** O sistema falha. As pessoas têm medo de pedir ajuda. "
-        "Então o modelo preditivo permite que a empresa aja **antes** do funcionário precisar pedir socorro."
+        "Um modelo preditivo permitiria que a empresa agisse **antes** do funcionário "
+        "precisar pedir socorro — identificando grupos de risco com base apenas em "
+        "variáveis comportamentais e ambientais."
     )
     st.divider()
 
-    st.markdown("#### Por que `work_interfere` como target?")
-    st.markdown("""
-    O dataset não tem uma coluna chamada 'burnout'. Mas `work_interfere` mede exatamente quando
-    a condição mental começa a **derrubar a produtividade** — o precursor do burnout.
+    # ── 4.1 Variável-Alvo ────────────────────────────────────────────────────
+    st.markdown("#### 4.1 — Variável-Alvo Proposta: `work_interfere`")
+    st.markdown(
+        "O dataset não possui uma coluna chamada 'burnout'. "
+        "Porém, `work_interfere` mede exatamente o momento em que a condição mental "
+        "começa a **derrubar a produtividade** — o precursor direto do burnout. "
+        "Ela seria binarizada da seguinte forma:"
+    )
+    col_t1, col_t2 = st.columns(2)
+    with col_t1:
+        st.markdown(
+            '<div style="background:#ffebee;border-left:4px solid #e57373;'
+            'border-radius:8px;padding:1rem 1.2rem;">'
+            '<p style="margin:0 0 6px 0;font-size:0.78rem;font-weight:700;'
+            'color:#c62828;text-transform:uppercase;letter-spacing:0.6px;">Classe 1 — Alto Risco</p>'
+            '<p style="margin:0;font-size:0.95rem;color:#263238;">'
+            '<code>Often</code> ou <code>Sometimes</code><br>'
+            'Interferência frequente da saúde mental na produtividade.</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    with col_t2:
+        st.markdown(
+            '<div style="background:#e8f5e9;border-left:4px solid #00897b;'
+            'border-radius:8px;padding:1rem 1.2rem;">'
+            '<p style="margin:0 0 6px 0;font-size:0.78rem;font-weight:700;'
+            'color:#00695c;text-transform:uppercase;letter-spacing:0.6px;">Classe 0 — Baixo Risco</p>'
+            '<p style="margin:0;font-size:0.95rem;color:#263238;">'
+            '<code>Rarely</code> ou <code>Never</code><br>'
+            'Interferência rara ou inexistente no trabalho.</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
-    - **Classe 1 (Alto Risco):** `Often` ou `Sometimes` → interferência frequente
-    - **Classe 0 (Baixo Risco):** `Rarely` ou `Never` → interferência rara/nenhuma
-
-    As **features** são puramente comportamentais e ambientais — sem dados médicos:
-    `remote_work`, `anonymity`, `leave`, `no_employees`, `supervisor`.
-    """)
-
-    with st.spinner("Treinando modelos..."):
-        metricas, importancias, y_test, resultados = treinar_modelo(df)
+    # Distribuição ilustrativa da variável-alvo
+    st.markdown("")
+    wi_counts = (
+        df["work_interfere"]
+        .map({"Often": "Alto Risco", "Sometimes": "Alto Risco",
+              "Rarely": "Baixo Risco", "Never": "Baixo Risco"})
+        .dropna()
+        .value_counts()
+        .reset_index()
+    )
+    wi_counts.columns = ["Classe", "Contagem"]
+    wi_counts["Proporção (%)"] = (wi_counts["Contagem"] / wi_counts["Contagem"].sum() * 100).round(1)
+    fig_wi = px.bar(
+        wi_counts, x="Classe", y="Proporção (%)", color="Classe",
+        color_discrete_map={"Alto Risco": CORES["acento_quente"], "Baixo Risco": CORES["teal"]},
+        text="Proporção (%)",
+        title="Distribuição da Variável-Alvo no Dataset",
+    )
+    fig_wi.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+    layout_plotly(fig_wi, altura=360)
+    st.plotly_chart(fig_wi, use_container_width=True)
+    insight(
+        "Aproximadamente **60%** dos respondentes com dados válidos se enquadrariam "
+        "na classe de Alto Risco — um desbalanceamento que justifica o uso de "
+        "técnicas como `class_weight='balanced'` nos algoritmos propostos."
+    )
 
     st.divider()
-    st.markdown("#### Comparação de Modelos")
 
-    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-    col_m1.metric("Random Forest — F1", f"{metricas['rf']['f1']:.3f}")
-    col_m2.metric("Random Forest — Accuracy", f"{metricas['rf']['accuracy']:.1%}")
-    col_m3.metric("Logistic Reg. — F1", f"{metricas['lr']['f1']:.3f}")
-    col_m4.metric("Logistic Reg. — Accuracy", f"{metricas['lr']['accuracy']:.1%}")
+    # ── 4.2 Features Propostas ───────────────────────────────────────────────
+    st.markdown("#### 4.2 — Features Propostas")
+    st.markdown(
+        "As variáveis de entrada seriam **puramente comportamentais e ambientais** — "
+        "sem qualquer dado médico ou diagnóstico, respeitando a privacidade dos funcionários. "
+        "Todas emergem diretamente das análises dos Atos 1, 2 e 3:"
+    )
 
-    st.divider()
+    FEATURES_INFO = [
+        ("remote_work",    "Regime de Trabalho",          "Remoto vs. Presencial — o paradoxo explorado no Ato 2."),
+        ("anonymity",      "Garantia de Anonimato",        "Principal barreira à busca por ajuda, conforme Ato 3."),
+        ("leave",          "Facilidade de Licença Médica", "Acesso à licença varia fortemente pelo tamanho da empresa (Ato 2)."),
+        ("no_employees",   "Tamanho da Empresa",           "Correlacionado à estrutura de suporte disponível (Ato 2)."),
+        ("supervisor",     "Conforto com o Supervisor",    "Relação direta com a cultura de segurança psicológica (Ato 3)."),
+    ]
 
-    col_a, col_b = st.columns(2)
-
-    with col_a:
-        st.markdown("#### Importância das Features (Random Forest)")
-        fig_imp = px.bar(
-            importancias, x="Importância", y="Feature",
-            orientation="h",
-            color="Importância",
-            color_continuous_scale="Teal",
-            text=importancias["Importância"].map(lambda x: f"{x:.3f}"),
-            title="Quais fatores mais preveem interferência no trabalho?",
-        )
-        fig_imp.update_traces(textposition="outside")
-        layout_plotly(fig_imp, pct=False)
-        fig_imp.update_layout(
-            yaxis={"categoryorder": "total ascending"},
-            coloraxis_showscale=False,
-        )
-        st.plotly_chart(fig_imp, use_container_width=True)
-        insight(
-            "As features que o modelo mais prioriza confirmam as análises anteriores: "
-            "sigilo (anonymity), suporte do supervisor e facilidade de licença são os maiores preditores."
-        )
-
-    with col_b:
-        st.markdown("#### Confusion Matrix — Random Forest")
-        cm = metricas["rf"]["cm"]
-        fig_cm, ax_cm = plt.subplots(figsize=(5, 4))
-        disp = ConfusionMatrixDisplay(
-            confusion_matrix=cm,
-            display_labels=["Baixo Risco (0)", "Alto Risco (1)"]
-        )
-        disp.plot(ax=ax_cm, colorbar=False, cmap="YlGn")
-        ax_cm.set_title("Confusion Matrix — Random Forest", fontsize=11, pad=10)
-        fig_cm.patch.set_facecolor("none")
-        ax_cm.set_facecolor("none")
-        for spine in ax_cm.spines.values():
-            spine.set_visible(False)
-        plt.tight_layout()
-        st.pyplot(fig_cm)
-
-        tn, fp, fn, tp = cm.ravel()
-        total_test = tn + fp + fn + tp
-        insight(
-            f"Em {total_test} casos de teste, o modelo acertou "
-            f"**{tp}** verdadeiros positivos (alto risco corretamente identificados) "
-            f"e **{tn}** verdadeiros negativos. "
-            f"Falsos negativos: **{fn}** (pessoas em risco classificadas como seguras)."
+    for feat, label, descricao in FEATURES_INFO:
+        st.markdown(
+            f'<div style="background:#f4f7f6;border:1px solid #e0e0e0;border-radius:8px;'
+            f'padding:0.7rem 1rem;margin-bottom:6px;display:flex;gap:1rem;">'
+            f'<span style="font-family:monospace;font-size:0.9rem;color:#00695c;'
+            f'font-weight:700;min-width:160px;">{feat}</span>'
+            f'<span style="font-size:0.9rem;color:#263238;">'
+            f'<strong>{label}</strong> — {descricao}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
         )
 
     st.divider()
-    st.markdown("#### Relatório de Classificação Detalhado")
-    with st.expander("Ver relatório completo (Random Forest)"):
-        y_pred_rf = resultados["rf"]["y_pred"]
-        report = classification_report(
-            y_test, y_pred_rf,
-            target_names=["Baixo Risco", "Alto Risco"],
-            output_dict=True
+
+    # ── 4.3 Algoritmos Propostos ─────────────────────────────────────────────
+    st.markdown("#### 4.3 — Algoritmos Propostos")
+
+    col_alg1, col_alg2 = st.columns(2)
+    with col_alg1:
+        st.markdown(
+            '<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:10px;'
+            'padding:1.1rem 1.3rem;">'
+            '<p style="margin:0 0 6px 0;font-size:1rem;font-weight:700;color:#00695c;">'
+            ':material/forest: Random Forest Classifier</p>'
+            '<ul style="margin:0;padding-left:1.2rem;font-size:0.9rem;color:#37474f;line-height:1.7;">'
+            '<li>Ensemble de árvores de decisão — robusto a outliers e variáveis categóricas codificadas</li>'
+            '<li>Gera ranking de <strong>importância de features</strong>, facilitando a explicabilidade</li>'
+            '<li>Hiperparâmetros sugeridos: <code>n_estimators=100</code>, '
+            '<code>class_weight="balanced"</code>, <code>random_state=42</code></li>'
+            '<li>Divisão treino/teste recomendada: <strong>80 / 20</strong> com estratificação</li>'
+            '</ul>'
+            '</div>',
+            unsafe_allow_html=True,
         )
-        df_report = pd.DataFrame(report).T.round(3)
-        st.dataframe(df_report, use_container_width=True)
+    with col_alg2:
+        st.markdown(
+            '<div style="background:#ede7f6;border:1px solid #ce93d8;border-radius:10px;'
+            'padding:1.1rem 1.3rem;">'
+            '<p style="margin:0 0 6px 0;font-size:1rem;font-weight:700;color:#6a1b9a;">'
+            ':material/functions: Logistic Regression</p>'
+            '<ul style="margin:0;padding-left:1.2rem;font-size:0.9rem;color:#37474f;line-height:1.7;">'
+            '<li>Modelo linear interpretável — coeficientes indicam o peso de cada fator de risco</li>'
+            '<li>Ideal como <strong>baseline</strong> de comparação para o Random Forest</li>'
+            '<li>Hiperparâmetros sugeridos: <code>max_iter=500</code>, '
+            '<code>class_weight="balanced"</code>, <code>random_state=42</code></li>'
+            '<li>Pré-processamento necessário: <strong>LabelEncoder</strong> para variáveis categóricas</li>'
+            '</ul>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
     st.divider()
-    st.markdown("#### A Proposta de Valor")
+
+    # ── 4.4 Pipeline e Métricas Esperadas ────────────────────────────────────
+    st.markdown("#### 4.4 — Pipeline de Treinamento e Métricas de Avaliação")
+    st.markdown(
+        "O fluxo completo de Machine Learning seria estruturado nas seguintes etapas:"
+    )
+
+    etapas = [
+        ("1. Pré-processamento",
+         "Filtrar as 5 features + target; remover nulos; binarizar `work_interfere` "
+         "(Often/Sometimes → 1, Rarely/Never → 0); aplicar `LabelEncoder` em cada coluna categórica."),
+        ("2. Divisão dos Dados",
+         "Separar em treino (80%) e teste (20%) com `train_test_split`, usando `stratify=y` "
+         "para preservar a proporção de classes desbalanceadas."),
+        ("3. Treinamento",
+         "Ajustar `RandomForestClassifier` e `LogisticRegression` com `class_weight='balanced'` "
+         "para compensar o desbalanceamento entre Alto Risco e Baixo Risco."),
+        ("4. Avaliação",
+         "Calcular **F1-Score** (métrica principal — penaliza falsos negativos em datasets desbalanceados), "
+         "**Accuracy**, **Matriz de Confusão** e **Classification Report** completo."),
+        ("5. Interpretabilidade",
+         "Extrair `feature_importances_` do Random Forest para identificar quais variáveis "
+         "ambientais mais contribuem para o risco — alinhando o modelo com as descobertas dos Atos anteriores."),
+    ]
+
+    for titulo, descricao in etapas:
+        st.markdown(
+            f'<div style="background:#ffffff;border:1px solid #e0e0e0;border-radius:8px;'
+            f'padding:0.8rem 1.1rem;margin-bottom:8px;">'
+            f'<p style="margin:0 0 4px 0;font-size:0.9rem;font-weight:700;color:#00695c;">{titulo}</p>'
+            f'<p style="margin:0;font-size:0.88rem;color:#37474f;line-height:1.55;">{descricao}</p>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    st.divider()
+
+    # ── 4.5 Resultado Esperado e Proposta de Valor ────────────────────────────
+    st.markdown("#### 4.5 — Resultado Esperado e Proposta de Valor")
     st.markdown(
         '<div class="proposta-box">'
         '<strong>Nossa análise provou que benefícios não funcionam sem cultura e sigilo.</strong><br><br>'
-        'Portanto, criamos um modelo que analisa o <em>formato de trabalho e o ambiente</em>. '
-        'Se o modelo classificar que um grupo de funcionários sob certas condições tem alta '
-        'possibilidade de interferência no trabalho (<code>work_interfere = Often/Sometimes</code>), '
-        'a empresa não precisa esperar eles pedirem socorro.<br><br>'
-        '<strong>Ela atua preventivamente</strong>: mudando a cultura daquele setor, '
-        'ajustando o trabalho remoto ou reforçando as políticas de sigilo '
-        'de forma anônima e proativa.'
+        'O modelo proposto analisaria o <em>formato de trabalho e o ambiente corporativo</em> para '
+        'classificar preventivamente os funcionários. Se um grupo sob determinadas condições '
+        'apresentar alta probabilidade de <code>work_interfere = Often/Sometimes</code>, '
+        'a empresa não precisaria esperar que pedissem socorro.<br><br>'
+        '<strong>Ela atuaria preventivamente</strong>: ajustando políticas de anonimato, '
+        'revisando o regime de trabalho de setores de alto risco ou capacitando supervisores '
+        'para criar um ambiente psicologicamente seguro — de forma proativa e antes do '
+        'esgotamento se instalar.'
         '</div>',
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("")
+    gancho(
+        "O maior valor do modelo não é a acurácia — é transformar dados comportamentais "
+        "em ação preventiva, antes que o funcionário precise pedir socorro."
     )
 
 
